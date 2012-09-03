@@ -18,7 +18,7 @@
 			"DOS":		false,
 			"DEC OS":	false,
 			"EBCDIC":	false,
-			"Misc":		false,
+			"Misc":		false
 		},
 		"dependencies": [
 			{
