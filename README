@@ -1,0 +1,16 @@
+        /|		
+     .-((--. 		
+    ( '`^'; )		
+    `;#    |		Pepper
+     \#    |		Eggdrop TCL Interface for Shadow
+      \#   \		By Dark_Aaron
+       '-.  )		http://ephasic.org/shadow/wiki/index.php/Pepper
+          \(		
+           `		
+
+This is a module for shadow which enables it to emulate an Eggdrop.  It provides
+TCL APIs to allow Eggdrop TCL scripts to run on shadow, it also sets up a "partyline"
+channel, in which output which would normally be sent to an Eggdrop's party line is sent
+to a channel instead.
+
+For more information, see the wiki page: http://ephasic.org/shadow/wiki/index.php/Pepper
