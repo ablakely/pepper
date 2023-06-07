@@ -10,6 +10,7 @@ package ShadowPepper;
 #$INSCRIPT[bash]
 #  if [ ! -d "./modules/Pepper" ]; then
 #    git clone https://github.com/ablakely/Pepper ./modules/Pepper
+#    ln -s ./modules/Pepper/ShadowPepper.pm ./modules/ShadowPepper.pm
 #  fi
 #$INSCRIPT
 

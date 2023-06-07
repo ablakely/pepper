@@ -10,10 +10,20 @@ use strict;
 use warnings;
 use Carp;
 
+use lib './Bindings';
+
 sub new {
     my ($class) = @_;
 
-    my $self = {};
+    require Pepper::Bindings::Core;
+    require Pepper::Bindings::Server;
+    
+    my $self = {
+        events => {},
+
+        _core_bindings => Pepper::Bindings::Core->new(),
+        _server_bindings => Pepper::Bindings::Server->new()
+    };
 
     return bless($self, $class);
 }
@@ -21,13 +31,15 @@ sub new {
 sub hook {
     my ($self, $interp, $bot) = @_;
 
-    $interp->CreateCommand("bind", sub {
-        my ($bot, $intp, @args) = @_;
+    my $ins = {
+        self => $self,
+        bot  => $bot
+    };
 
-        foreach my $a (@args) {
-            $bot->log("bind arg: $a\n");
-        }
-    }, $bot);
+    $self->{_core_bindings}->hook($interp, $ins);
+    $self->{_server_bindings}->hook($interp, $ins);
+
+    return 1;
 }
 
 1;
