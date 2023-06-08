@@ -29,12 +29,11 @@ use Pepper;
 my $bot  = Shadow::Core->new();
 my $help = Shadow::Help->new();
 my $dbi  = Shadow::DB->new();
-my $tcl  = Pepper->new($bot);
+our $tcl  = Pepper->new($bot);
 
 sub loader {
     require Pepper;
-    $tcl = Pepper->new($bot);
-    $tcl->init();
+    sp_init_tcl();
 
     # IRC commands
     $bot->add_handler('privcmd pepper', 'sp_irc_interface');
@@ -43,6 +42,13 @@ sub loader {
 
     # IRC event bindings
     $bot->add_handler('message channel', 'sp_pub');
+    $bot->add_handler('message private', 'sp_priv');
+
+}
+
+sub sp_init_tcl {
+    $tcl = Pepper->new($bot);
+    $tcl->init();
 
     my $db = ${$dbi->read()};
     unless (exists($db->{Pepper})) {
@@ -51,9 +57,24 @@ sub loader {
         };
 
         $dbi->write();
+    } else {
+        my $res;
+
+        foreach my $script (keys(%{$db->{Pepper}->{scripts}})) {
+            $res = $tcl->load("./modules/Pepper/scripts/".$script);
+
+            if ($res->{ok}) {
+                $bot->log("[Pepper] Loaded Tcl script: $script", "System");
+            } else {
+                $bot->log("[Pepper] Error loading Tcl script [$script]: ".$res->{err}, "System");
+
+                return 0;
+            }
+        }
     }
 
     $dbi->free();
+    return 1;
 }
 
 sub sp_irc_interface {
@@ -62,8 +83,15 @@ sub sp_irc_interface {
 
     return $bot->notice($nick, "Unauthorized.") unless ($bot->isbotadmin($nick, $host));
 
-    if ($asp[0] =~ /load/i) {
+    if ($asp[0] =~ /^load$/i) {
         if (-e "./modules/Pepper/scripts/".$asp[1]) {
+            my $db = ${$dbi->read()};
+            $db->{Pepper}->{scripts}->{$asp[1]} = {
+                bidings => []
+            };
+            $dbi->write();
+            $dbi->free();
+
             my $res = $tcl->load("./modules/Pepper/scripts/".$asp[1]);
 
             if ($res->{ok}) {
@@ -73,6 +101,21 @@ sub sp_irc_interface {
             }
         } else {
             return $bot->notice($nick, "Error loading ".$asp[1].": No such file.");
+        }
+    } elsif ($asp[0] =~ /^unload$/i) {
+        my $db = ${$dbi->read()};
+
+        if (exists($db->{Pepper}->{scripts}->{$asp[1]})) {
+            delete $db->{Pepper}->{scripts}->{$asp[1]};
+
+            $dbi->write();
+            $dbi->free();
+
+            if (sp_init_tcl()) {
+                return $bot->notice($nick, "Removed $asp[1] and reinitalized the Tcl interpreter.");
+            } else {
+                return $bot->notice($nick, "Error reinitalizing the Tcl interpreter, check logs.");
+            }
         }
     }
 
@@ -94,9 +137,22 @@ sub sp_irc_eval {
     }
 }
 
+# IRC event handlers
 sub sp_pub {
-    $tcl->event('pub', @_);
+    my ($nick, $host, $chan, $text) = @_;
+    my $handle = 0;
+
+    $tcl->event('pub', $nick, $host, $handle, $chan, $text);
 }
+
+sub sp_priv {
+    my ($nick, $host, $text) = @_;
+    my $handle = 0;
+
+    $tcl->event('msg', $nick, $host, $handle, $text);
+}
+
+
 
 sub unloader {
     $tcl->destroy();
@@ -109,6 +165,7 @@ sub unloader {
 
     # IRC events
     $bot->del_handler('message channel', 'sp_pub');
+    $bot->del_handler('message private', 'sp_priv');
 
     delete $INC{'Pepper.pm'};
     delete $INC{'Pepper/Bindings.pm'};

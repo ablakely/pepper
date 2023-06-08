@@ -78,10 +78,8 @@ sub load {
 sub event {
     my ($self, $evtype, @args) = @_;
 
-
     my $interp = $self->{interp};
     my @events = $self->{bindings}->get_events($evtype);
-
     
     my $ret = {
         err => 0,
@@ -89,21 +87,48 @@ sub event {
     };
 
     if ($evtype eq "pub") {
-        my ($nick, $host, $chan, $text) = @args;
+        my ($nick, $host, $hand, $chan, $text) = @args;
 
         for (my $i = 0; $i < scalar(@events); $i++) {
-            my @tmp = @{$events[$i][0]};
+            if ($events[$i]) {
+                foreach my $aref (@{$events[$i]}) {
+                    my ($type, $flags, $mask, $procname) = @{$aref};
 
-            if ($text =~ /^$tmp[2]/) {
-                $text =~ s/^$tmp[2]//;
-                $text =~ s/^\s//;
-                CORE::eval "\$interp->call(\$tmp[3], \$nick, \$host, 0, \$chan, \$text);";
-                if ($@) {
-                    $ret->{err} = $@;
-                    return $ret;
+                    if ($text =~ /^$mask/) {
+                        $text =~ s/^$mask//;
+                        $text =~ s/^\s//;
+                        CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan, \$text);";
+                        if ($@) {
+                            $ret->{err} = $@;
+                            return $ret;
+                        }
+                    }
                 }
             }
         }
+    } elsif ($evtype eq "msg") {
+        my ($nick, $host, $handle, $text) = @_;
+
+        for (my $i = 0; $i < scalar(@events); $i++) {
+            if ($events[$i]) {
+                foreach my $aref (@{$events[$i]}) {
+                    my ($type, $flags, $mask, $procname) = @{$aref};
+
+                    if ($text =~ /^$mask/) {
+                        $text =~ s/^$mask//;
+                        $text =~ s/^\s//;
+                        CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$text);";
+                        if ($@) {
+                            $ret->{err} = $@;
+                            return $ret;
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        $ret->{err} = "Unimplemented bind handler: $evtype";
+        return $ret;
     }
 
     $ret->{ok} = 1;
