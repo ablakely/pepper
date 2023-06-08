@@ -11,29 +11,61 @@ use warnings;
 use Carp;
 
 sub new {
-    my ($class, $ins) = @_;
+    my ($class) = @_;
 
-    my $self = {
-        ins => $ins
-    };
+    my $self = {};
 
     return bless($self, $class);
 }
 
 sub hook {
-    my ($self, $interp, $ins) = @_;
+    my ($self, $interp, $inst, $bot) = @_;
+
+    my $ins = {
+        bot => $bot,
+        self => $inst
+    };
+
+    $interp->CreateCommand("putserv", sub {
+        my ($ins, $intp, $tclcmd, @args) = @_;
+        my ($str, $flags) = @args;
+
+        my $bot = $ins->{bot};
+
+        $bot->raw($str."\r\n", 1);
+    }, $ins);
+
+    $interp->CreateCommand("puthelp", sub {
+        my ($ins, $intp, $tclcmd, @args) = @_;
+        my ($str, $flags) = @args;
+
+        my $bot = $ins->{bot};
+
+        chomp $str;
+        $bot->raw($str."\r\n", 2);
+    }, $ins);
 
     $interp->CreateCommand("putquick", sub {
         my ($ins, $intp, $tclcmd, @args) = @_;
         my ($str, $flags) = @args;
 
-        my $self = $ins->{self};
         my $bot  = $ins->{bot};
 
         chomp $str;
-        $bot->fastout($str."\r\n");
-
+        $bot->raw($str."\r\n", 3);
     }, $ins);
+
+    $interp->CreateCommand("putnow", sub {
+        my ($ins, $intp, $tclcmd, @args) = @_;
+        my ($str, $flags) = @args;
+
+        my $bot  = $ins->{bot};
+
+        chomp $str;
+        $bot->fastout($str."\r\n", 3);
+    }, $ins);
+
+    return $inst;
 }
 
 1;

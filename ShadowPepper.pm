@@ -34,10 +34,15 @@ my $tcl  = Pepper->new($bot);
 sub loader {
     require Pepper;
     $tcl = Pepper->new($bot);
+    $tcl->init();
 
+    # IRC commands
     $bot->add_handler('privcmd pepper', 'sp_irc_interface');
     $bot->add_handler('privcmd peval', 'sp_irc_eval');
     $bot->add_handler('chancmd peval', 'sp_irc_eval');
+
+    # IRC event bindings
+    $bot->add_handler('message channel', 'sp_pub');
 
     my $db = ${$dbi->read()};
     unless (exists($db->{Pepper})) {
@@ -53,7 +58,23 @@ sub loader {
 
 sub sp_irc_interface {
     my ($nick, $host, $text) = @_;
+    my @asp = split(/ /, $text);
 
+    return $bot->notice($nick, "Unauthorized.") unless ($bot->isbotadmin($nick, $host));
+
+    if ($asp[0] =~ /load/i) {
+        if (-e "./modules/Pepper/scripts/".$asp[1]) {
+            my $res = $tcl->load("./modules/Pepper/scripts/".$asp[1]);
+
+            if ($res->{ok}) {
+                return $bot->notice($nick, "Loaded ".$asp[1]." successfully.");
+            } else {
+                return $bot->notice($nick, "Error loading ".$asp[1].": ".$res->{err});
+            }
+        } else {
+            return $bot->notice($nick, "Error loading ".$asp[1].": No such file.");
+        }
+    }
 
 }
 
@@ -73,12 +94,21 @@ sub sp_irc_eval {
     }
 }
 
+sub sp_pub {
+    $tcl->event('pub', @_);
+}
+
 sub unloader {
+    $tcl->destroy();
     $dbi->free();
 
+    # IRC commands
     $bot->del_handler('privcmd pepper', 'sp_irc_interface');
     $bot->del_handler('privcmd peval', 'sp_irc_eval');
     $bot->del_handler('chancmd peval', 'sp_irc_eval');
+
+    # IRC events
+    $bot->del_handler('message channel', 'sp_pub');
 
     delete $INC{'Pepper.pm'};
     delete $INC{'Pepper/Bindings.pm'};

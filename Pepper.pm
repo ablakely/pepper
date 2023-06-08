@@ -31,9 +31,15 @@ sub init {
     $self->{bindings}->hook($self->{interp}, $self->{bot});
 }
 
+sub destroy {
+    my ($self) = @_;
+
+    $self->{initalized} = 0;
+    $self->{bindings}->unload();
+}
+
 sub eval {
     my ($self, $code) = @_;
-    $self->init();
 
     my $interp = $self->{interp};
     my $ret = {
@@ -44,6 +50,60 @@ sub eval {
     CORE::eval "\$interp->Eval(\$code);";
     if ($@) {
         $ret->{err} = $@;
+    }
+
+    $ret->{ok} = 1;
+    return $ret;
+}
+
+sub load {
+    my ($self, $file) = @_;
+
+    my $interp = $self->{interp};
+    my $ret = {
+        err => 0,
+        ok => 0
+    };
+
+    CORE::eval "\$interp->EvalFile(\$file);";
+    if ($@) {
+        $ret->{err} = $@;
+    }
+
+
+    $ret->{ok} = $ret->{err} ? 0 : 1;
+    return $ret;
+}
+
+sub event {
+    my ($self, $evtype, @args) = @_;
+
+
+    my $interp = $self->{interp};
+    my @events = $self->{bindings}->get_events($evtype);
+
+    
+    my $ret = {
+        err => 0,
+        ok => 0
+    };
+
+    if ($evtype eq "pub") {
+        my ($nick, $host, $chan, $text) = @args;
+
+        for (my $i = 0; $i < scalar(@events); $i++) {
+            my @tmp = @{$events[$i][0]};
+
+            if ($text =~ /^$tmp[2]/) {
+                $text =~ s/^$tmp[2]//;
+                $text =~ s/^\s//;
+                CORE::eval "\$interp->call(\$tmp[3], \$nick, \$host, 0, \$chan, \$text);";
+                if ($@) {
+                    $ret->{err} = $@;
+                    return $ret;
+                }
+            }
+        }
     }
 
     $ret->{ok} = 1;

@@ -11,27 +11,22 @@ use warnings;
 use Carp;
 
 sub new {
-    my ($class, $ins) = @_;
+    my ($class) = @_;
 
-    my $self = {
-        ins => $ins
-    };
+    my $self = {};
 
     return bless($self, $class);
 }
 
 sub hook {
-    my ($self, $interp, $ins) = @_;
+    my ($self, $interp, $inst, $bot) = @_;
 
     $interp->CreateCommand("bind", sub {
-        my ($ins, $intp, $tclcmd, @args) = @_;
+        my ($tmp, $intp, $tclcmd, @args) = @_;
         my ($type, $flags, $mask, $procname) = @args;
 
-        my $self = $ins->{ins}->{self};
-        my $bot  = $ins->{ins}->{bot};
-
         if (!$procname) {
-            my @tmp = $self->{events}->{$type};
+            my @tmp = $inst->{events}->{$type};
 
             for (my $i = 0; $i < scalar(@tmp); $i++) {
                 $tmp[$i][4] = $tmp[$i][3];
@@ -40,17 +35,38 @@ sub hook {
 
             return @tmp;
         } else {
-            if (!grep(/^$procname$/, @{$self->{events}->{$type}})) {
-                push(@{$self->{events}->{$type}}, @args);
+            if (exists($inst->{events}->{$type})) {
+                for (my $i = 0; $i < scalar(@{$inst->{events}->{$type}}); $i++) {
+                    my @tmp = @{$inst->{events}->{$type}[$i]};
 
-                $bot->log("[Pepper::Tcl] Binding $type event $mask to $procname", "Modules");
-                return $procname;
+                    if ($tmp[2] eq $mask && $tmp[3] eq $procname) {
+                        $bot->log("[Pepper::Tcl] Error: Cannot bind $type event $mask: $procname proc already exists", "Modules");
+                        return 0;
+                    }
+                }
             } else {
-                $bot->log("[Pepper::Tcl] Error: Cannot bind $type event $mask: $procname proc already exists", "Modules");
-                return 0;
+                $inst->{events}->{$type} = ();
             }
+
+            push(@{$inst->{events}->{$type}}, \@args);
+
+            $bot->log("[Pepper::Tcl] Binding $type event $mask to $procname", "Modules");
+            return $procname;
         }
-    }, $ins);
+    });
+
+    $interp->CreateCommand("unbind", sub {
+        
+    });
+
+    $interp->CreateCommand("putlog", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($text) = @args;
+
+        $bot->log($text);
+    });
+
+    return $inst;
 }
 
 1;

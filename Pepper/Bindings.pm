@@ -31,15 +31,21 @@ sub new {
 sub hook {
     my ($self, $interp, $bot) = @_;
 
-    my $ins = {
-        self => $self,
-        bot  => $bot
-    };
-
-    $self->{_core_bindings}->hook($interp, $ins);
-    $self->{_server_bindings}->hook($interp, $ins);
+    $self = $self->{_core_bindings}->hook($interp, $self, $bot);
+    $self = $self->{_server_bindings}->hook($interp, $self, $bot);
 
     return 1;
+}
+
+sub get_events {
+    my ($self, $type) = @_;
+
+    return exists($self->{events}->{$type}) ? $self->{events}->{$type} : 0;
+}
+
+sub unload {
+    delete $INC{'Pepper/Bindings/Core.pm'};
+    delete $INC{'Pepper/Bindings/Server.pm'};
 }
 
 1;
