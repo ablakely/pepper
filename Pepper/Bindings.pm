@@ -17,22 +17,25 @@ sub new {
 
     require Pepper::Bindings::Core;
     require Pepper::Bindings::Server;
+    require Pepper::Bindings::Channel;
     
     my $self = {
         events => {},
 
-        _core_bindings => Pepper::Bindings::Core->new(),
-        _server_bindings => Pepper::Bindings::Server->new()
+        _core_bindings  => Pepper::Bindings::Core->new(),
+        _serv_bindings  => Pepper::Bindings::Server->new(),
+        _chan_bindings  => Pepper::Bindings::Channel->new()
     };
 
     return bless($self, $class);
 }
 
 sub hook {
-    my ($self, $interp, $bot) = @_;
+    my ($self, $interp, $bot, $dbi) = @_;
 
-    $self = $self->{_core_bindings}->hook($interp, $self, $bot);
-    $self = $self->{_server_bindings}->hook($interp, $self, $bot);
+    $self = $self->{_core_bindings}->hook($interp, $self, $bot, $dbi);
+    $self = $self->{_serv_bindings}->hook($interp, $self, $bot, $dbi);
+    $self = $self->{_chan_bindings}->hook($interp, $self, $bot, $dbi);
 
     return 1;
 }
@@ -46,6 +49,7 @@ sub get_events {
 sub unload {
     delete $INC{'Pepper/Bindings/Core.pm'};
     delete $INC{'Pepper/Bindings/Server.pm'};
+    delete $INC{'Pepper/Bindings/Channel.pm'};
 }
 
 1;

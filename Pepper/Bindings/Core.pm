@@ -28,7 +28,7 @@ sub new {
 }
 
 sub hook {
-    my ($self, $interp, $inst, $bot) = @_;
+    my ($self, $interp, $inst, $bot, $dbi) = @_;
 
     foreach my $k (keys %{$self->{stackable}}) {
         $inst->{events}->{$k} = [];

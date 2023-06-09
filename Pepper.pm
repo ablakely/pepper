@@ -11,13 +11,14 @@ use lib './modules/Pepper';
 use Pepper::Bindings;
 
 sub new {
-    my ($class, $bot) = @_;
+    my ($class, $bot, $dbi) = @_;
 
     my $self = {
         interp => Tcl->new,
         bindings => Pepper::Bindings->new(),
         initalized => 0,
-        bot => $bot ? $bot : 0
+        bot => $bot ? $bot : 0,
+        dbi => $dbi ? $dbi : 0
     };
 
     return bless($self, $class);
@@ -28,7 +29,7 @@ sub init {
     return if ($self->{initalized});
 
     $self->{initalized} = 1;
-    $self->{bindings}->hook($self->{interp}, $self->{bot});
+    $self->{bindings}->hook($self->{interp}, $self->{bot}, $self->{dbi});
 }
 
 sub destroy {

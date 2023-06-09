@@ -47,13 +47,15 @@ sub loader {
 }
 
 sub sp_init_tcl {
-    $tcl = Pepper->new($bot);
+    $tcl = Pepper->new($bot, $dbi);
     $tcl->init();
 
     my $db = ${$dbi->read()};
     unless (exists($db->{Pepper})) {
         $db->{Pepper} = {
-            scripts => {}
+            scripts  => {},
+            channels => {},
+            servers  => {}
         };
 
         $dbi->write();
@@ -117,8 +119,22 @@ sub sp_irc_interface {
                 return $bot->notice($nick, "Error reinitalizing the Tcl interpreter, check logs.");
             }
         }
-    }
+    } elsif ($asp[0] =~ /^list$/) {
+        my $db = ${$dbi->read()};
+        my @out;
 
+        push(@out, "Pepper: Scripts");
+        push(@out, "-------------------------------------");
+
+        foreach my $k (keys(%{$db->{Pepper}->{scripts}})) {
+            push(@out, " $k");
+        }
+        
+        $dbi->free();
+        $bot->fastnotice($nick, @out);
+    } else {
+        return $bot->notice($nick, "\x02Usage:\x02 pepper <load|unload|list> [<script>]");
+    }
 }
 
 sub sp_irc_eval {
