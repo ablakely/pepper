@@ -15,6 +15,7 @@ use lib './Bindings';
 sub new {
     my ($class) = @_;
 
+    require Pepper::Bindings::IRC;
     require Pepper::Bindings::Core;
     require Pepper::Bindings::Server;
     require Pepper::Bindings::Channel;
@@ -22,6 +23,7 @@ sub new {
     my $self = {
         events => {},
 
+        _irc_bindings   => Pepper::Bindings::IRC->new(),
         _core_bindings  => Pepper::Bindings::Core->new(),
         _serv_bindings  => Pepper::Bindings::Server->new(),
         _chan_bindings  => Pepper::Bindings::Channel->new()
@@ -33,6 +35,7 @@ sub new {
 sub hook {
     my ($self, $interp, $bot, $dbi) = @_;
 
+    $self =  $self->{_irc_bindings}->hook($interp, $self, $bot, $dbi);
     $self = $self->{_core_bindings}->hook($interp, $self, $bot, $dbi);
     $self = $self->{_serv_bindings}->hook($interp, $self, $bot, $dbi);
     $self = $self->{_chan_bindings}->hook($interp, $self, $bot, $dbi);
@@ -47,6 +50,7 @@ sub get_events {
 }
 
 sub unload {
+    delete $INC{'Pepper/Bindings/IRC.pm'};
     delete $INC{'Pepper/Bindings/Core.pm'};
     delete $INC{'Pepper/Bindings/Server.pm'};
     delete $INC{'Pepper/Bindings/Channel.pm'};

@@ -9,19 +9,34 @@ use lib './modules';
 use lib './modules/Pepper';
 
 use Pepper::Bindings;
+use Pepper::DCC;
 
 sub new {
     my ($class, $bot, $dbi) = @_;
 
+    my $dcc_port = 1024;
+    my $cfg      = $bot->getcfg();
+    
+    if (exists($cfg->{Modules}->{Pepper}->{dcc}->{port})) {
+        $dcc_port = $cfg->{Modules}->{Pepper}->{dcc}->{port};
+    }
+
     my $self = {
-        interp => Tcl->new,
-        bindings => Pepper::Bindings->new(),
+        interp     => Tcl->new,
+        bindings   => Pepper::Bindings->new(),
+        dcc        => $bot ? Pepper::DCC->new($bot, $dcc_port, "./dcc-downloads/") : 0,
         initalized => 0,
-        bot => $bot ? $bot : 0,
-        dbi => $dbi ? $dbi : 0
+        bot        => $bot ? $bot : 0,
+        dbi        => $dbi ? $dbi : 0
     };
 
     return bless($self, $class);
+}
+
+sub dcc {
+    my $self = shift;
+
+    return $self->{dcc};
 }
 
 sub init {

@@ -43,6 +43,7 @@ sub loader {
     # IRC event bindings
     $bot->add_handler('message channel', 'sp_pub');
     $bot->add_handler('message private', 'sp_priv');
+    $bot->add_handler('ctcp dcc', 'sp_dcc');
 
 }
 
@@ -165,7 +166,11 @@ sub sp_priv {
     my ($nick, $host, $text) = @_;
     my $handle = 0;
 
-    $tcl->event('msg', $nick, $host, $handle, $text);
+    if ($text =~ /\001DCC\s(.*?)\s(.*?)\001/) {
+        $tcl->{dcc}->handle_dcc_msg($tcl, $nick, $host, $1, $2);
+    } else {
+        $tcl->event('msg', $nick, $host, $handle, $text);
+    }
 }
 
 
@@ -182,6 +187,7 @@ sub unloader {
     # IRC events
     $bot->del_handler('message channel', 'sp_pub');
     $bot->del_handler('message private', 'sp_priv');
+    $bot->del_handler('ctcp dcc', 'sp_dcc');
 
     delete $INC{'Pepper.pm'};
     delete $INC{'Pepper/Bindings.pm'};

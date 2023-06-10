@@ -14,13 +14,17 @@ use Carp;
 sub new {
     my ($class) = @_;
 
-    my $self = {};
+    my $self = {
+        hooked => 0,
+        dbi    => 0
+    };
 
     return bless($self, $class);
 }
 
 sub hook {
     my ($self, $interp, $inst, $bot, $dbi) = @_;
+    $self->{dbi} = $dbi;
 
     # putkick <channel> <nick, nick, ...> [reason]
     # Description: sends kicks to the server and tries to put as many nicks into one kick command as possible.
@@ -220,7 +224,7 @@ sub hook {
     # onchan <nickname> [channel]
     # Returns: 1 if someone by that nickname is on the specified channel (or any channel if none is
     #          is specified); 0 otherwise 
-    $interp->CreateCommad("onchan", sub {
+    $interp->CreateCommand("onchan", sub {
         my ($tmp, $intp, $tclcmd, @args) = @_;
         my ($nick, $chan) = @args;
 
@@ -344,6 +348,8 @@ sub hook {
     # TODO: pushmode
     # TODO: flushmode
 
+    $self->{hooked} = 1;
+    return $inst;
 }
 
 1;

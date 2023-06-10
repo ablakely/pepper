@@ -13,13 +13,19 @@ use Carp;
 sub new {
     my ($class) = @_;
 
-    my $self = {};
+    my $self = {
+        hooked => 0,
+        dbi    => 0
+    };
 
     return bless($self, $class);
 }
 
+
+
 sub hook {
     my ($self, $interp, $inst, $bot, $dbi) = @_;
+    $self->{dbi} = $dbi;
 
     # check if settings hash table exists, if not create it
     my $db = ${$dbi->read()}->{Pepper};
@@ -97,20 +103,42 @@ sub hook {
         return 0;
     });
 
-    # isupport get [key]
-    # Returns: string containing the setting's value or 0 if not set; if a key
-    #          is not specified returns a dict of settings for the channel
+    # isupport <mode> [key]
+    # Mode: get
+    #   Returns: string containing the setting's value or 0 if not set; if a key
+    #            is not specified returns a dict of settings for the server or 0
+    # Mode: isset
+    #   Returns: 1 if the specified key is set; 0 otherwise
     $interp->CreateCommand("isupport", sub {
         my ($tmp, $intp, $tclcmd, @args) = @_;
         my ($mode, $key) = @args;
         my $db = ${$dbi->read()}->{Pepper}->{servers};
+        my $srv = $bot->getserver();
 
-        if ($key) {
-
+        if ($mode =~ /^get$/i) {
+            if ($key) {
+                if (exists($db->{$srv}->{settings}->{$key})) {
+                    $dbi->free();
+                    return $db->{$srv}->{settings}->{$key};
+                }
+            } else {
+                if (exists($db->{$srv}->{settings})) {
+                    $dbi->free();
+                    return $db->{$srv}->{settings};
+                } 
+            }
+        } elsif ($mode =~ /^isset$/i && $key) {
+            if (exists($db->{$srv}->{settings}->{$key})) {
+                $dbi->free();
+                return 1;
+            }
         }
+
+        $dbi->free();
+        return 0;
     });
 
-
+    $self->{hooked} = 1;
     return $inst;
 }
 

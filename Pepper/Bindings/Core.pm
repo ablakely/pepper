@@ -21,7 +21,9 @@ sub new {
             wall => 1, bcst => 1, chjn => 1, chpt => 1, time => 1, away => 1, load => 1, unld => 1, nkch => 1,
             evnt => 1, lost => 1, tout => 1, out => 1, cron => 1, log => 1, tls => 1, die => 1, ircaway => 1,
             invt => 1, rawt => 1, account => 1, isupport => 1, monitor => 1, msg  => 0, dcc => 0, fil => 0, pub => 0
-        }
+        },
+        hooked => 0,
+        dbi => 0
     };
 
     return bless($self, $class);
@@ -29,6 +31,7 @@ sub new {
 
 sub hook {
     my ($self, $interp, $inst, $bot, $dbi) = @_;
+    $self->{dbi} = $dbi;
 
     foreach my $k (keys %{$self->{stackable}}) {
         $inst->{events}->{$k} = [];
@@ -81,6 +84,7 @@ sub hook {
         $bot->log($text);
     });
 
+    $self->{hooked} = 1;
     return $inst;
 }
 
