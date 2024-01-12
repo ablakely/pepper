@@ -6,7 +6,7 @@ package ShadowPepper;
 # Copyright 2023 (C) Ephasic Software
 #
 # installdepends.pl macros:
-#$INDEP[Tcl] 
+#$INDEP[Tcl Digest::SHA LWP::Simple Net::Address::IP::Local] 
 #$INSCRIPT[bash]
 #  if [ ! -d "./modules/Pepper" ]; then
 #    git clone https://github.com/ablakely/Pepper ./modules/Pepper
@@ -31,6 +31,8 @@ my $help = Shadow::Help->new();
 my $dbi  = Shadow::DB->new();
 our $tcl  = Pepper->new($bot);
 
+my $last_reap = 0;
+
 sub loader {
     require Pepper;
     sp_init_tcl();
@@ -44,6 +46,9 @@ sub loader {
     $bot->add_handler('message channel', 'sp_pub');
     $bot->add_handler('message private', 'sp_priv');
     $bot->add_handler('ctcp dcc', 'sp_dcc');
+
+    # tick
+    $bot->add_handler('event tick', 'sp_tick');
 
 }
 
@@ -90,7 +95,9 @@ sub sp_irc_interface {
         if (-e "./modules/Pepper/scripts/".$asp[1]) {
             my $db = ${$dbi->read()};
             $db->{Pepper}->{scripts}->{$asp[1]} = {
-                bidings => []
+                bindings => [],
+                flags    => [],
+                channels => []
             };
             $dbi->write();
             $dbi->free();
@@ -120,6 +127,55 @@ sub sp_irc_interface {
                 return $bot->notice($nick, "Error reinitalizing the Tcl interpreter, check logs.");
             }
         }
+    } elsif ($asp[0] =~ /^reload$/i) {
+        if (sp_init_tcl()) {
+            return $bot->notice($nick, "Reinitalized the Tcl interpreter.");
+        } else {
+            return $bot->notice($nick, "Error reinitalizing the Tcl interpreter, check logs.");
+        }
+    } elsif ($asp[0] =~ /^list$/i) {
+        my $db = ${$dbi->read()};
+        my @out;
+
+        push(@out, "Pepper: Scripts");
+        push(@out, "-------------------------------------");
+
+        foreach my $k (keys(%{$db->{Pepper}->{scripts}})) {
+            push(@out, " $k");
+        }
+        
+        $dbi->free();
+        $bot->fastnotice($nick, @out);
+    } elsif ($asp[0] =~ /^chanset (\#.*?) (\+|\-)(.*?)$/) {
+        my $db = ${$dbi->read()}->{Pepper};
+        
+        if ($2 eq '+') {
+            if (exists($db->{flags}->{$3})) {
+                push(@{$db->{flags}->{$3}}, $1);
+
+                $bot->notice($nick, "Added $3 flag to $1.");
+            } else {
+                # $db->{flags}->{$3} = [$1];
+                $bot->notice($nick, "Error: Invalid flag.");
+            }
+
+        } elsif ($2 eq '-') {
+            if (exists($db->{flags}->{$3})) {
+                my @tmp = @{$db->{flags}->{$3}};
+                my @out;
+
+                foreach my $chan (@tmp) {
+                    push(@out, $chan) unless ($chan eq $1);
+                }
+
+                $db->{flags}->{$3} = \@out;
+                $bot->notice($nick, "Removed $3 flag from $1.");
+            } else {
+                $bot->notice($nick, "Error: Invalid flag.");
+            }
+        } else {
+            $bot->notice($nick, "Error: Invalid operation.");
+        }
     } elsif ($asp[0] =~ /^list$/) {
         my $db = ${$dbi->read()};
         my @out;
@@ -133,8 +189,41 @@ sub sp_irc_interface {
         
         $dbi->free();
         $bot->fastnotice($nick, @out);
+    } elsif ($text =~ /^chanset (\#.*?) (\+|\-)(.*?)$/) {
+        my $db = ${$dbi->read()}->{Pepper};
+        
+        if ($2 eq '+') {
+            if (exists($db->{flags}->{$3})) {
+                push(@{$db->{flags}->{$3}}, $1);
+
+                $bot->notice($nick, "Added $3 flag to $1.");
+            } else {
+                # $db->{flags}->{$3} = [$1];
+                $bot->notice($nick, "Error: Invalid flag.");
+            }
+
+        } elsif ($2 eq '-') {
+            if (exists($db->{flags}->{$3})) {
+                my @tmp = @{$db->{flags}->{$3}};
+                my @out;
+
+                foreach my $chan (@tmp) {
+                    push(@out, $chan) unless ($chan eq $1);
+                }
+
+                $db->{flags}->{$3} = \@out;
+                $bot->notice($nick, "Removed $3 flag from $1.");
+            } else {
+                $bot->notice($nick, "Error: Invalid flag.");
+            }
+        } else {
+            $bot->notice($nick, "Error: Invalid operation.");
+        }
+
+        $dbi->write();
+        $dbi->free();
     } else {
-        return $bot->notice($nick, "\x02Usage:\x02 pepper <load|unload|list> [<script>]");
+        return $bot->notice($nick, "\x02Usage:\x02 pepper <load|unload|list|chanset> [<script>|<channel> <+/-><flag>]");
     }
 }
 
@@ -166,14 +255,30 @@ sub sp_priv {
     my ($nick, $host, $text) = @_;
     my $handle = 0;
 
-    if ($text =~ /\001DCC\s(.*?)\s(.*?)\001/) {
-        $tcl->{dcc}->handle_dcc_msg($tcl, $nick, $host, $1, $2);
-    } else {
+    #    if ($text =~ /\001DCC\s(.*?)\s(.*?)\001/) {
+    #    $tcl->{dcc}->handle_dcc_msg($tcl, $nick, $host, $1, $2);
+    #} else {
         $tcl->event('msg', $nick, $host, $handle, $text);
-    }
+    #}
 }
 
+sub sp_dcc {
+    my ($nick, $host, $chan, $args) = @_;
+    if (!$args) {
+        $args = $chan;
+        $chan = 0;
+    }
 
+    print "sb_dcc: $args\n";
+    $tcl->{dcc}->handle_dcc_msg($tcl, $nick, $host, $chan, $args); 
+}
+
+sub sp_tick {
+    my ($tc) = @_;
+
+    $tcl->dcc()->tick();
+
+}
 
 sub unloader {
     $tcl->destroy();
@@ -188,6 +293,9 @@ sub unloader {
     $bot->del_handler('message channel', 'sp_pub');
     $bot->del_handler('message private', 'sp_priv');
     $bot->del_handler('ctcp dcc', 'sp_dcc');
+
+    # tick
+    $bot->del_handler('event tick', 'sp_tick');
 
     delete $INC{'Pepper.pm'};
     delete $INC{'Pepper/Bindings.pm'};

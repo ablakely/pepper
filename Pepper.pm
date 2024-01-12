@@ -30,6 +30,8 @@ sub new {
         dbi        => $dbi ? $dbi : 0
     };
 
+    $self->{interp}->Init();
+
     return bless($self, $class);
 }
 
@@ -51,7 +53,10 @@ sub destroy {
     my ($self) = @_;
 
     $self->{initalized} = 0;
+    $self->{dcc} = 0;
     $self->{bindings}->unload();
+
+    delete $INC{'Pepper/DCC.pm'};
 }
 
 sub eval {
