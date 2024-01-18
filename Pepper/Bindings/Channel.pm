@@ -102,7 +102,7 @@ sub hook {
                 $db->{$name} = [];
             }
         } else {
-            $bot->log("setudef: invalid or unimplemented type $type");
+            $bot->log("[Pepper::TCL] setudef: invalid or unimplemented type $type");
             return;
         }
 
@@ -116,6 +116,22 @@ sub hook {
     # Returns: The value of the setting you specify. For flags, a value of 0 means it is disabled (-), 
     #          and non-zero means enabled (+). If no setting is specified, a flat list of all available settings and 
     #          their values will be returned.
+    #
+    # channel add <name> [option-list]                                                                                                                                                                           
+    # Description: adds a channel record for the bot to monitor. The full list of possible options are given in doc/settings/mod.channels. Note that the channel options must       
+    #              be in a list (enclosed in {}).                                                                                                                                                
+    #                                                                                                                                                                             
+    # Returns: nothing
+    #
+    # channel set <name> <options>
+    # Description: sets options for the channel specified. The full list of possible options are given in doc/settings/mod.channels.
+    #
+    # Returns: nothing
+    #
+    # TODO:
+    #   channel set <name> <options...>
+    #   channel info <name>
+    #   channel remove <name>
     $interp->CreateCommand("channel", sub {
         my ($ins, $intp, $tclcmd, @args) = @_;
         my ($mode, $chan, $setting) = @args;
@@ -127,7 +143,7 @@ sub hook {
                 my @flagchans = @{$db->{flags}->{$flag}};
 
                 foreach my $ichan (@flagchans) {
-                    if ($ichan eq $chan && $flag eq $setting) {
+                    if (lc($ichan) eq lc($chan) && $flag eq $setting) {
                         return 1;
                     }
                 }
@@ -147,6 +163,29 @@ sub hook {
             }
 
             return 0;
+        } elsif ($mode =~ /add/i) {
+            my $db = ${$dbi->read()}->{Pepper}->{channels};
+
+            if (exists($db->{lc($chan)})) {
+                $bot->log("[Pepper::TCL] channel: channel $chan already exists");
+                return;
+            }
+
+            $db->{lc($chan)} = {
+                settings => {}
+            };
+
+            if ($setting) {
+                $db->{lc($chan)}->{settings}->{$setting} = 1;
+            }
+
+            $dbi->write();
+            $dbi->free();
+
+            return;
+        } else {
+            $bot->log("[Pepper::TCL] channel: invalid or unimplemented mode $mode");
+            return;
         }
     });
 
