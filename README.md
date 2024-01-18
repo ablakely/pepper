@@ -20,5 +20,25 @@ Place the script in `modules/Pepper/scripts` and message Shadow
 
     /msg Shadow pepper load <script.tcl>
 
+### Unloading a Tcl script
 
+    /msg Shadow pepper unload <script.tcl>
 
+This will remove the given script and reinit the Tcl interpreter
+
+### Listing loaded scripts
+
+    /msg Shadow pepper list
+
+### chanset
+
+    /msg Shadow pepper chanset #channel +/-flag
+
+---
+
+This module is currently in development and a lot of the eggdrop API hasn't been implemented yet, 
+but basic functionality does work at this point.
+
+---
+
+Written by Aaron Blakely \<aaron\@ephasic.org\>
