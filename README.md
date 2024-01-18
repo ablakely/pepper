@@ -8,6 +8,8 @@ Place this project in your modules directory for shadow and copy or create a lin
 
     modules/Pepper/ShadowPepper.pm to modules/ShadowPepper.pm
 
+or download the ShadowPepper.pm module from this repo to your modules folder and run `installdepends.pl`
+
 Then edit your config file or message shadow on IRC:
 
     /msg Shadow loadmod ShadowPepper
