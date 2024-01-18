@@ -128,10 +128,13 @@ sub hook {
     #
     # Returns: nothing
     #
-    # TODO:
-    #   channel set <name> <options...>
-    #   channel info <name>
-    #   channel remove <name>
+    # channel info <name>
+    # Returns: a list of info about the specified channel's settings.
+    #
+    # channel remove <name>
+    # Description: removes a channel record from the bot and makes the bot no longer monitor the channel
+    #
+    # Returns: nothing
     $interp->CreateCommand("channel", sub {
         my ($ins, $intp, $tclcmd, @args) = @_;
         my ($mode, $chan, $setting) = @args;
@@ -178,6 +181,46 @@ sub hook {
             if ($setting) {
                 $db->{lc($chan)}->{settings}->{$setting} = 1;
             }
+
+            $dbi->write();
+            $dbi->free();
+
+            return;
+        } elsif ($mode =~ /set/i) {
+            my $db = ${$dbi->read()}->{Pepper}->{channels};
+
+            unless (exists($db->{lc($chan)})) {
+                $bot->log("[Pepper::TCL] channel: channel $chan does not exist");
+                return;
+            }
+
+            $db->{lc($chan)}->{settings}->{$setting} = 1;
+
+            $dbi->write();
+            $dbi->free();
+
+            return;
+        } elsif ($mode =~ /info/i) {
+            my $db = ${$dbi->read()}->{Pepper}->{channels};
+
+            unless (exists($db->{lc($chan)})) {
+                $bot->log("[Pepper::TCL] channel: channel $chan does not exist");
+                return;
+            }
+
+            my $chan_db = $db->{lc($chan)};
+            my @settings = keys(%{$chan_db->{settings}});
+
+            return @settings;
+        } elsif ($mode =~ /remove/i) {
+            my $db = ${$dbi->read()}->{Pepper}->{channels};
+
+            unless (exists($db->{lc($chan)})) {
+                $bot->log("[Pepper::TCL] channel: channel $chan does not exist");
+                return;
+            }
+
+            delete($db->{lc($chan)});
 
             $dbi->write();
             $dbi->free();
