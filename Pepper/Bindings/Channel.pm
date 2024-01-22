@@ -112,6 +112,19 @@ sub hook {
         return;
     });
 
+    # channels
+    # Description: returns a list of all channels the bot has a record for
+    $interp->CreateCommand("channels", sub {
+        my ($ins, $intp, $tclcmd, @args) = @_;
+
+        my $db = ${$dbi->read()}->{Pepper}->{channels};
+        my @chans = keys(%{$db});
+
+        $dbi->free();
+
+        return @chans;
+    });
+
     # channel get <name> [setting]
     # Returns: The value of the setting you specify. For flags, a value of 0 means it is disabled (-), 
     #          and non-zero means enabled (+). If no setting is specified, a flat list of all available settings and 
@@ -167,25 +180,7 @@ sub hook {
 
             return 0;
         } elsif ($mode =~ /add/i) {
-            my $db = ${$dbi->read()}->{Pepper}->{channels};
-
-            if (exists($db->{lc($chan)})) {
-                $bot->log("[Pepper::TCL] channel: channel $chan already exists");
-                return;
-            }
-
-            $db->{lc($chan)} = {
-                settings => {}
-            };
-
-            if ($setting) {
-                $db->{lc($chan)}->{settings}->{$setting} = 1;
-            }
-
-            $dbi->write();
-            $dbi->free();
-
-            return;
+            return $self->create_chan($chan);
         } elsif ($mode =~ /set/i) {
             my $db = ${$dbi->read()}->{Pepper}->{channels};
 
