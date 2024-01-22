@@ -84,6 +84,42 @@ sub hook {
         $bot->log($text);
     });
 
+
+    # putloglev <flag(s)> <channel> <text>
+    # Description: logs <text> to the logfile and partyline at the log level of the specified flag.
+    #              Use "*" in lieu of a flag to indicate all log levels.
+    #
+    #              NOTE: The eggdrop docs do not specify the use of channel, so it is ignored.
+    # Returns: nothing
+    $interp->CreateCommand("putloglev", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($flags, $channel, $text) = @args;
+
+        $bot->log("[Pepper::Tcl] putloglev: $flags $channel $text", "Modules");
+
+        if ($flags eq "d") {
+            $bot->log("[Pepper::Tcl] putloglev: Debug: $text", "Modules");
+        } else {
+            $bot->log("[Pepper::Tcl] Uninmplemented putloglev flag $flags: $text", "Modules");
+        }
+
+        $bot->log($text, $channel, $flags);
+    });
+
+
+
+    # rand <limit>
+    # Returns: a random integer between 0 and limit-1. 
+    #          Limit must be greater than 0 and equal to or less than RAND_MAX, which is generally 2147483647. 
+    #          The underlying pseudo-random number generator is not cryptographically secure.
+    $interp->CreateCommand("rand", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($limit) = @args;
+
+        return int(rand($limit));
+    });
+
+
     $self->{hooked} = 1;
     return $inst;
 }

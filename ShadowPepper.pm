@@ -46,6 +46,12 @@ sub loader {
     $bot->add_handler('message channel', 'sp_pub');
     $bot->add_handler('message private', 'sp_priv');
     $bot->add_handler('ctcp dcc', 'sp_dcc');
+    $bot->add_handler('event join', 'sp_join');
+    $bot->add_handler('event part', 'sp_part');
+    $bot->add_handler('event nick', 'sp_nick');
+    $bot->add_handler('event mode', 'sp_mode');
+    $bot->add_handler('event ctcp', 'sp_ctcp');
+    $bot->add_handler('event quit', 'sp_sign');
 
     # tick
     $bot->add_handler('event tick', 'sp_tick');
@@ -273,6 +279,57 @@ sub sp_dcc {
     $tcl->{dcc}->handle_dcc_msg($tcl, $nick, $host, $chan, $args); 
 }
 
+sub sp_join {
+    my ($nick, $host, $chan) = @_;
+    my $handle = 0;
+
+    $tcl->event('join', $nick, $host, $handle, $chan);
+}
+
+sub sp_part {
+    my ($nick, $host, $chan, $text) = @_;
+    my $handle = 0;
+
+    $tcl->event('part', $nick, $host, $handle, $chan, $text);
+}
+
+sub sp_nick {
+    my ($nick, $host, $newnick, @channels) = @_;
+    my $handle = 0;
+
+    foreach my $chan (@channels) {
+        $tcl->event('nick', $nick, $host, $handle, $chan, $newnick);
+    }
+}
+
+
+sub sp_mode {
+    my ($nick, $host, $chan, $action, @mode) = @_;
+    my $handle = 0;
+
+    my $len = length($mode[0]);
+    my @msp = split(//, $mode[0]);
+
+    for (my $i = 1; $i < $len; $i++) {
+        $tcl->event('mode', $nick, $host, $handle, $chan, $action.$msp[$i], $mode[$i] ? $mode[$i] : '');
+    }
+}
+
+sub sp_ctcp {
+    my ($nick, $host, $dest, $cmd, $params) = @_;
+    my $handle = 0;
+
+    $tcl->event('ctcp', $nick, $host, $handle, $dest, $cmd, $params);
+}
+
+sub sp_sign {
+    my ($nick, $host, $chan, $reason, @channels) = @_;
+
+    foreach my $chan (@channels) {
+        $tcl->event('sign', $nick, $host, $handle, $chan, $reason);
+    }
+}
+
 sub sp_tick {
     my ($tc) = @_;
 
@@ -293,6 +350,12 @@ sub unloader {
     $bot->del_handler('message channel', 'sp_pub');
     $bot->del_handler('message private', 'sp_priv');
     $bot->del_handler('ctcp dcc', 'sp_dcc');
+    $bot->del_handler('event join', 'sp_join');
+    $bot->del_handler('event part', 'sp_part');
+    $bot->del_handler('event nick', 'sp_nick');
+    $bot->del_handler('event mode', 'sp_mode');
+    $bot->del_handler('event ctcp', 'sp_ctcp');
+    $bot->del_handler('event quit', 'sp_sign');
 
     # tick
     $bot->del_handler('event tick', 'sp_tick');
