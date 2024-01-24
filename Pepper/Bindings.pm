@@ -33,9 +33,15 @@ sub new {
 }
 
 sub hook {
-    my ($self, $interp, $bot, $dbi) = @_;
+    my ($self, $inst) = @_;
 
-    $self =  $self->{_irc_bindings}->hook($interp, $self, $bot, $dbi);
+    $self->{_pepper} = $inst;
+
+    my $bot = $inst->{bot};
+    my $dbi = $inst->{dbi};
+    my $interp = $inst->{interp};
+
+    $self = $self->{_irc_bindings}->hook($interp, $self, $bot, $dbi);
     $self = $self->{_core_bindings}->hook($interp, $self, $bot, $dbi);
     $self = $self->{_serv_bindings}->hook($interp, $self, $bot, $dbi);
     $self = $self->{_chan_bindings}->hook($interp, $self, $bot, $dbi);

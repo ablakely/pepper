@@ -35,8 +35,11 @@ sub new {
     return bless($self, $class);
 }
 
-sub _check_hostmask {
+sub _check_match {
     my ($self, $mask1, $mask2, $checkchan) = @_;
+
+    print "checking $mask1 against $mask2\n";
+
 
     if ($mask1 eq "*" or $mask2 eq "*") {
         return 1;
@@ -105,6 +108,39 @@ sub _check_hostmask {
     return 0;
 }
 
+sub _check_time {
+    my ($self, $v1, $v2) = @_;
+    
+    print "comparing $v1 to $v2\n";
+    # TODO: check for ? and short args
+
+    # check for wildcard * in v1 and v2
+    if ($v1 =~ /\*/) {
+        $v1 =~ s/\*/.*?/g;
+    }
+
+    if ($v2 =~ /\*/) {
+        $v2 =~ s/\*/.*?/g;
+    }
+
+    # splt time into its components
+    # [min hour day month year]
+    my @t1 = split(/ /, $v1);
+    my @t2 = split(/ /, $v2);
+
+    # compare each component
+    for (my $i = 0; $i < 5; $i++) {
+        if ($t1[$i] =~ /$t2[$i]/i or $t2[$i] =~ /$t1[$i]/i) {
+            next;
+        } else {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+
 sub dcc {
     my $self = shift;
 
@@ -116,7 +152,7 @@ sub init {
     return if ($self->{initalized});
 
     $self->{initalized} = 1;
-    $self->{bindings}->hook($self->{interp}, $self->{bot}, $self->{dbi});
+    $self->{bindings}->hook($self);
 }
 
 sub destroy {
@@ -225,7 +261,7 @@ sub event {
                 foreach my $aref (@{$events[$i]}) {
                     my ($type, $flags, $mask, $procname) = @{$aref};
 
-                    if ($self->_check_hostmask($mask, $host, $chan)) {
+                    if ($self->_check_match($mask, $host, $chan)) {
                         CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan);";
                         if ($@) {
                             $ret->{err} = $@;
@@ -243,28 +279,12 @@ sub event {
                 foreach my $aref (@{$events[$i]}) {
                     my ($type, $flags, $mask, $procname) = @{$aref};
 
-                    if ($self->_check_hostmask($mask, $host, $chan)) {
+                    if ($self->_check_match($mask, $host, $chan)) {
                         CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan, \$text);";
                         if ($@) {
                             $ret->{err} = $@;
                             return $ret;
                         }
-                    }
-                }
-            }
-        }
-    } elsif ($evtype eq "quit") {
-        my ($nick, $host, $msg) = @args;
-
-        for (my $i = 0; $i < scalar(@events); $i++) {
-            if ($events[$i]) {
-                foreach my $aref (@{$events[$i]}) {
-                    my ($type, $flags, $mask, $procname) = @{$aref};
-
-                    CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$msg);";
-                    if ($@) {
-                        $ret->{err} = $@;
-                        return $ret;
                     }
                 }
             }
@@ -277,7 +297,7 @@ sub event {
                 foreach my $aref (@{$events[$i]}) {
                     my ($type, $flags, $mask, $procname) = @{$aref};
 
-                    if ($self->_check_hostmask($mask, $host, $chan)) {
+                    if ($self->_check_match($mask, $host, $chan)) {
                         CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan, \$newnick);";
                         if ($@) {
                             $ret->{err} = $@;
@@ -297,7 +317,7 @@ sub event {
                 foreach my $aref (@{$events[$i]}) {
                     my ($type, $flags, $mask, $procname) = @{$aref};
 
-                    if ($self->_check_hostmask($mask, $host, $chan)) {
+                    if ($self->_check_match($mask, $host, $chan)) {
                         CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan, \$mode, \$arg);";
                         if ($@) {
                             $ret->{err} = $@;
@@ -317,7 +337,7 @@ sub event {
                 foreach my $aref (@{$events[$i]}) {
                     my ($type, $flags, $mask, $procname) = @{$aref};
 
-                    if ($self->_check_hostmask($mask, $ctcpcmd)) {
+                    if ($self->_check_match($mask, $ctcpcmd)) {
                         CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$dest, \$ctcpcmd, \$ctcptext);";
                         if ($@) {
                             $ret->{err} = $@;
@@ -327,7 +347,62 @@ sub event {
                 }
             }
         }
+    } elsif ($evtype eq "sign") {
+        my ($nick, $host, $hand, $chan, $reason) = @args;
 
+        for (my $i = 0; $i < scalar(@events); $i++) {
+            if ($events[$i]) {
+                foreach my $aref (@{$events[$i]}) {
+                    my ($type, $flags, $mask, $procname) = @{$aref};
+
+                    print "$type $flags $mask $procname\n";
+
+                    if ($self->_check_match($mask, "$chan $host")) {
+                        CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan, \$reason);";
+                        if ($@) {
+                            $ret->{err} = $@;
+                            return $ret;
+                        }
+                    }
+                }
+            }
+        }
+    } elsif ($evtype eq "pubm") {
+        my ($nick, $host, $hand, $chan, $text) = @args;
+
+        for (my $i = 0; $i < scalar(@events); $i++) {
+            if ($events[$i]) {
+                foreach my $aref (@{$events[$i]}) {
+                    my ($type, $flags, $mask, $procname) = @{$aref};
+
+                    if ($self->_check_match($mask, $text)) {
+                        CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$chan, \$text);";
+                        if ($@) {
+                            $ret->{err} = $@;
+                            return $ret;
+                        }
+                    }
+                }
+            }
+        }
+    } elsif ($evtype eq "time") {
+        my ($min, $hour, $day, $month, $year) = @args;
+
+        for (my $i = 0; $i < scalar(@events); $i++) {
+            if ($events[$i]) {
+                foreach my $aref (@{$events[$i]}) {
+                    my ($type, $flags, $mask, $procname) = @{$aref};
+
+                    if ($self->_check_time($mask, "@args")) {
+                        CORE::eval "\$interp->call(\$procname, \$min, \$hour, \$day, \$month, \$year);";
+                        if ($@) {
+                            $ret->{err} = $@;
+                            return $ret;
+                        }
+                    }
+                }
+            }
+        }
     } else {
         $ret->{err} = "Unimplemented bind handler: $evtype";
         return $ret;

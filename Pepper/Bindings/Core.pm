@@ -23,7 +23,9 @@ sub new {
             invt => 1, rawt => 1, account => 1, isupport => 1, monitor => 1, msg  => 0, dcc => 0, fil => 0, pub => 0
         },
         hooked => 0,
-        dbi => 0
+        dbi => 0,
+        utimers => {},
+        timers => {}
     };
 
     return bless($self, $class);
@@ -117,6 +119,116 @@ sub hook {
         my ($limit) = @args;
 
         return int(rand($limit));
+    });
+
+    # utimer <seconds> <tcl-command> [count [timerName]]
+    # Description: executes the given Tcl command after a certain number of seconds have passed. If count is specified,
+    #              the command will be executed count times with the given interval in between. If you specify a count of 0,
+    #              the utimer will repeat until it's removed with killutimer or until the bot is restarted. If timerName
+    #              is specified, it will become the unique identifier for the timer. If timerName is not specified, 
+    #              Eggdrop will assign a timerName in the format of "timer<integer>".
+    # Returns: a timerName
+    $interp->CreateCommand("utimer", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($seconds, $cb, $count, $timerName) = @args;
+
+        if (!$timerName) {
+            $timerName = "timer" . scalar(keys %{$self->{utimers}});
+        }
+
+        push(@{$self->{utimers}->{$timerName}}, [$seconds, $cb, $count, $timerName]);
+
+        $bot->log("[Pepper::Tcl] utimer: $seconds $tclcmd $count $timerName", "Modules");
+
+        return $timerName;
+    });
+
+    # timer <minutes> <tcl-command> [count [timerName]]
+    # Description: executes the given Tcl command after a certain number of minutes have passed, at the top of the minute
+    #              (ie, if a timer is started at 10:03:34 with 1 minute specified, it will execute at 10:04:00. If a timer is started 
+    #              at 10:06:34 with 2 minutes specified, it will execute at 10:08:00). If count is specified, the command will be
+    #              executed count times with the given interval in between. If you specify a count of 0, the timer will repeat until 
+    #              it's removed with killtimer or until the bot is restarted. If timerName is specified, it will become the unique 
+    #              identifier for the timer. If no timerName is specified, Eggdrop will assign a timerName in the 
+    #              format of "timer<integer>".
+    # Returns: a timerName
+    $interp->CreateCommand("timer", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($minutes, $cb, $count, $timerName) = @args;
+
+        if (!$timerName) {
+            $timerName = "timer" . scalar(keys %{$self->{timers}});
+        }
+
+        push(@{$self->{timers}->{$timerName}}, [$minutes, $cb, $count, $timerName]);
+
+        $bot->log("[Pepper::Tcl] timer: $minutes $tclcmd $count $timerName", "Modules");
+
+        return $timerName;
+    });
+
+    # timers
+    # Description: lists all active minutely timers.
+    # Returns: a list of active minutely timers, with each timer sub-list containing the number of minutes left
+    #          until activation, the command that will be executed, the timerName, and the remaining number of repeats.
+    $interp->CreateCommand("timers", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+
+        my @timers = ();
+
+        foreach my $timer (keys %{$self->{timers}}) {
+            my $t = $self->{timers}->{$timer};
+
+            push(@timers, [$t->[0], $t->[1], $t->[3], $t->[2]]);
+        }
+
+        return @timers;
+    });
+
+    # timers
+    # Description: lists all active minutely timers.
+    # Returns: a list of active minutely timers, with each timer sub-list containing the number of minutes left
+    #          until activation, the command that will be executed, the timerName, and the remaining number of repeats.
+    $interp->CreateCommand("utimers", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+
+        my @timers = ();
+
+        foreach my $timer (keys %{$self->{utimers}}) {
+            my $t = $self->{utimers}->{$timer};
+
+            push(@timers, [$t->[0], $t->[1], $t->[3], $t->[2]]);
+        }
+
+        return @timers;
+    });
+
+    # matchaddr <hostmask> <address>
+    # Description: checks if the address matches the hostmask given. The address should be in the form nick!user@host.
+    # Returns: 1 if the address matches the hostmask, 0 otherwise.
+    $interp->CreateCommand("matchaddr", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($hostmask, $address) = @args;
+
+        # remove { and } from the hostmask and address
+        $hostmask =~ s/^\{//;
+        $hostmask =~ s/\}$//;
+        $address =~ s/^\{//;
+        $address =~ s/\}$//;
+
+        return $inst->{_pepper}->_check_match($hostmask, $address);
+    });
+
+    # validuser <handle>
+    # Returns: 1 if a user by that name exists; 0 otherwise
+    $interp->CreateCommand("validuser", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($handle) = @args;
+
+        # TODO:
+        # return $inst->{_pepper}->_check_validuser($handle);
+
+        return 0;
     });
 
 

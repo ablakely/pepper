@@ -32,6 +32,7 @@ my $dbi  = Shadow::DB->new();
 our $tcl  = Pepper->new($bot);
 
 my $last_reap = 0;
+my $stime = time();
 
 sub loader {
     require Pepper;
@@ -255,6 +256,7 @@ sub sp_pub {
     my $handle = 0;
 
     $tcl->event('pub', $nick, $host, $handle, $chan, $text);
+    $tcl->event('pubm', $nick, $host, $handle, $chan, $text);
 }
 
 sub sp_priv {
@@ -323,18 +325,25 @@ sub sp_ctcp {
 }
 
 sub sp_sign {
-    my ($nick, $host, $chan, $reason, @channels) = @_;
+    my ($nick, $host, $reason, @channels) = @_;
+    my $handle = 0;
 
     foreach my $chan (@channels) {
-        $tcl->event('sign', $nick, $host, $handle, $chan, $reason);
+        $tcl->event('sign', $nick, $host, $handle, $chan, $reason ? $reason : '');
     }
 }
 
 sub sp_tick {
     my ($tc) = @_;
+    my $time = time();
 
     $tcl->dcc()->tick();
 
+    if (($time - $stime) >= 60) {
+        my @lt = localtime($time);
+        $tcl->event('time', $lt[1], $lt[2], $lt[3], $lt[4], $lt[5] + 1900);
+        $stime = $time;
+    }
 }
 
 sub unloader {
