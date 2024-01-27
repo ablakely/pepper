@@ -266,7 +266,7 @@ sub hook {
         # TODO: User DB
         $bot->log("TODO: matchattr called with $handle $flags $channel\n", "PEPPER_TODO");
 
-        if ($flags eq "J") {
+        if ($flags eq "J" or $flags eq "b") {
             return 0;
         } else {
             return 1;

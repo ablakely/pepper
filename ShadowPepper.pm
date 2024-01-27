@@ -32,11 +32,11 @@ my $dbi  = Shadow::DB->new();
 our $tcl  = Pepper->new($bot);
 
 my $last_reap = 0;
+my $setconnectevent = 0;
 my $stime = time();
 
 sub loader {
     require Pepper;
-    sp_init_tcl();
 
     # IRC commands
     $bot->add_handler('privcmd pepper', 'sp_irc_interface');
@@ -50,9 +50,17 @@ sub loader {
     $bot->add_handler('event join', 'sp_join');
     $bot->add_handler('event part', 'sp_part');
     $bot->add_handler('event nick', 'sp_nick');
+    $bot->add_handler('event nick_me', 'sp_nick_me');
     $bot->add_handler('event mode', 'sp_mode');
     $bot->add_handler('event ctcp', 'sp_ctcp');
     $bot->add_handler('event quit', 'sp_sign');
+
+    unless ($bot->connected()) {
+        $bot->add_handler('event connected', 'sp_connected');
+        $setconnectevent = 1;
+    } else {
+        sp_connected();
+    }
 
     # tick
     $bot->add_handler('event tick', 'sp_tick');
@@ -63,13 +71,13 @@ sub sp_init_tcl {
     $tcl = Pepper->new($bot, $dbi);
     $tcl->init();
 
-
     # set eggdrop global variables
     $tcl->setvar('botnick', $bot->nick());
     $tcl->setvar('botname', $bot->nick()."!".$bot->gethost($bot->nick()));
+
+    # make this a config option?
     $tcl->setvar('numversion', 10120000);
     $tcl->setvar('version', "1.12.0-pepper");
-
 
     my $db = ${$dbi->read()};
     unless (exists($db->{Pepper})) {
@@ -98,6 +106,12 @@ sub sp_init_tcl {
 
     $dbi->free();
     return 1;
+}
+
+sub sp_connected {
+    my ($nick) = @_;
+
+    sp_init_tcl();
 }
 
 sub sp_irc_interface {
@@ -312,6 +326,11 @@ sub sp_nick {
     }
 }
 
+sub sp_nick_me {
+    my ($nick, $host, $newnick) = @_;
+    
+    $tcl->setvar('botnick', $newnick);
+}
 
 sub sp_mode {
     my ($nick, $host, $chan, $action, @mode) = @_;
@@ -329,9 +348,6 @@ sub sp_ctcp {
     my ($nick, $host, $dest, $cmd, $params) = @_;
     my $handle = 0;
     
-    # remove leading space from params
-    $params =~ s/^\s+//;
-
     $tcl->event('ctcp', $nick, $host, $handle, $dest, $cmd, $params);
 }
 
@@ -374,9 +390,14 @@ sub unloader {
     $bot->del_handler('event join', 'sp_join');
     $bot->del_handler('event part', 'sp_part');
     $bot->del_handler('event nick', 'sp_nick');
+    $bot->del_handler('event nick_me', 'sp_nick_me');
     $bot->del_handler('event mode', 'sp_mode');
     $bot->del_handler('event ctcp', 'sp_ctcp');
     $bot->del_handler('event quit', 'sp_sign');
+
+    if ($setconnectevent) {
+        $bot->del_handler('event connected', 'sp_connected');
+    }
 
     # tick
     $bot->del_handler('event tick', 'sp_tick');
