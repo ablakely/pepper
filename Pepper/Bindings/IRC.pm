@@ -346,6 +346,7 @@ sub hook {
         my ($ban, $chan) = @args;
 
         # TODO: Shadow Core - ban list support
+        print "TODO: ischanban called with $ban, $chan\n";
         # return $bot->isban($chan, $ban);
         return 0;
     });
@@ -358,11 +359,14 @@ sub hook {
         my ($tmp, $intp, $tclcmd, @args) = @_;
         my ($nick, $chan) = @args;
 
+        $chan = $chan ? $chan : "";
+
         # TODO: User DB
+        $bot->log("TODO: nick2hand called with $nick, $chan\n", "PEPPER_TODO");
         # my $hand = $bot->gethand($nick);
         #return $hand ? $hand : "";
 
-        return "";
+        return "*";
     });
 
 

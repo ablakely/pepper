@@ -24,8 +24,10 @@ sub new {
         },
         hooked => 0,
         dbi => 0,
+        _stime => time(),
         utimers => {},
-        timers => {}
+        timers => {},
+        _bindings => 0
     };
 
     return bless($self, $class);
@@ -34,6 +36,7 @@ sub new {
 sub hook {
     my ($self, $interp, $inst, $bot, $dbi) = @_;
     $self->{dbi} = $dbi;
+    $self->{_bindings} = $inst;
 
     foreach my $k (keys %{$self->{stackable}}) {
         $inst->{events}->{$k} = [];
@@ -97,10 +100,11 @@ sub hook {
         my ($tmp, $intp, $tclcmd, @args) = @_;
         my ($flags, $channel, $text) = @args;
 
-        $bot->log("[Pepper::Tcl] putloglev: $flags $channel $text", "Modules");
-
         if ($flags eq "d") {
             $bot->log("[Pepper::Tcl] putloglev: Debug: $text", "Modules");
+        } elsif ($flags =~ /^\d+$/) {
+            $bot->log("[Pepper::Tcl] LOG [LEVEL $flags]: $text", "EGG_LOG$flags");
+            $bot->log("[Pepper::Tcl] LOG [LEVEL $flags]: $text", "PEPPER_DEBUG");
         } else {
             $bot->log("[Pepper::Tcl] Uninmplemented putloglev flag $flags: $text", "Modules");
         }
@@ -133,12 +137,14 @@ sub hook {
         my ($seconds, $cb, $count, $timerName) = @args;
 
         if (!$timerName) {
-            $timerName = "timer" . scalar(keys %{$self->{utimers}});
+            $timerName = "utimer".int(rand(10)).int(rand(10)).int(rand(10)).int(rand(10)).int(rand(10)).int(rand(10));
         }
 
-        push(@{$self->{utimers}->{$timerName}}, [$seconds, $cb, $count, $timerName]);
+        $count = 0 if (!$count);
 
-        $bot->log("[Pepper::Tcl] utimer: $seconds $tclcmd $count $timerName", "Modules");
+        $self->{utimers}->{$timerName} = [time(), $seconds, $cb, $count, $timerName];
+
+        $bot->log("[Pepper::Tcl] utimer: $seconds $cb $count $timerName", "PEPPER_DEBUG");
 
         return $timerName;
     });
@@ -157,12 +163,22 @@ sub hook {
         my ($minutes, $cb, $count, $timerName) = @args;
 
         if (!$timerName) {
-            $timerName = "timer" . scalar(keys %{$self->{timers}});
+            $timerName = "timer".int(rand(10)).int(rand(10)).int(rand(10)).int(rand(10)).int(rand(10)).int(rand(10));
         }
 
-        push(@{$self->{timers}->{$timerName}}, [$minutes, $cb, $count, $timerName]);
+        $minutes = $minutes * 60;
 
-        $bot->log("[Pepper::Tcl] timer: $minutes $tclcmd $count $timerName", "Modules");
+        my $starttime = time();
+
+        # calculate the number of seconds until the next minute
+        my $seconds = 60 - ($starttime % 60);
+
+        # add the number of minutes to the number of seconds
+        $minutes += $seconds;
+    
+        $self->{timers}->{$timerName} = [$starttime, $minutes, $cb, $count, $timerName];
+
+        $bot->log("[Pepper::Tcl] timer: $minutes $cb $count $timerName", "PEPPER_DEBUG");
 
         return $timerName;
     });
@@ -179,7 +195,7 @@ sub hook {
         foreach my $timer (keys %{$self->{timers}}) {
             my $t = $self->{timers}->{$timer};
 
-            push(@timers, [$t->[0], $t->[1], $t->[3], $t->[2]]);
+            push(@timers, $t->[1], $t->[3], $t->[2]);
         }
 
         return @timers;
@@ -226,14 +242,88 @@ sub hook {
         my ($handle) = @args;
 
         # TODO:
+        $bot->log("TODO: validuser called with $handle", "PEPPER_TODO");
         # return $inst->{_pepper}->_check_validuser($handle);
 
         return 0;
+    });
+
+    # matchattr <handle> <flags> [channel]
+    # Description: checks if the flags of the specified user match the flags provided. "flags" is of the form:
+    #              [+/-]<global flags>[&/|<channel flags>[&/|<bot flags>]]
+    #
+    #              Either | or & can be used as a separator between global, channel, and bot flags, but only one separator can be used
+    #              per flag section. A `+' is used to check if a user has the subsequent flags, and a `-' is used to check if a user does
+    #              NOT have the subsequent flags. Please see Flag Masks for additional information on flag usage.
+    #
+    # Returns: 1 if the specified user has the flags matching the provided mask; 0 otherwise
+    $interp->CreateCommand("matchattr", sub {
+        my ($tmp, $intp, $tclcmd, @args) = @_;
+        my ($handle, $flags, $channel) = @args;
+
+        $channel = "" if (!$channel);
+
+        # TODO: User DB
+        $bot->log("TODO: matchattr called with $handle $flags $channel\n", "PEPPER_TODO");
+
+        if ($flags eq "J") {
+            return 0;
+        } else {
+            return 1;
+        }
     });
 
 
     $self->{hooked} = 1;
     return $inst;
 }
+
+sub tick {
+    my ($self) = @_;
+
+    # timers start from top of minute and only fire in minute increments
+    foreach my $timer (keys %{$self->{timers}}) {
+        my @t = @{$self->{timers}->{$timer}};
+
+        # calc the seconds left and update the array
+        $t[1] = $t[1] - (time() - $t[0]);
+
+        # check if timer is ready to fire
+        if ($t[1] <= 0) {
+            # execute the callback
+            $self->{_bindings}->{_pepper}->eval($t[2]);
+
+            # if the timer is a one-shot, remove it
+            if ($t[3] == 0) {
+                delete $self->{timers}->{$timer};
+            } else {
+                # otherwise, decrement the count
+                $t[3]--;
+            }
+        }
+    }
+
+    foreach my $utimer (keys %{$self->{utimers}}) {
+        my @t = @{$self->{utimers}->{$utimer}};
+
+        # calc the seconds left and update the array
+        $self->{utimers}->{$utimer}[1] = $t[1] - (time() - $t[0]);
+
+        # check if timer is ready to fire
+        if ($t[1] <= 0) {
+            # execute the callback
+            $self->{_bindings}->{_pepper}->eval($t[2]);
+
+            # if the timer is a one-shot, remove it
+            if ($t[3] == 0) {
+                delete $self->{utimers}->{$utimer};
+            } else {
+                # otherwise, decrement the count
+                $t[3]--;
+            }
+        }
+    }
+}
+
 
 1;

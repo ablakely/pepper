@@ -40,11 +40,13 @@ sub _check_match {
 
     print "checking $mask1 against $mask2\n";
 
-
     if ($mask1 eq "*" or $mask2 eq "*") {
         return 1;
     }
 
+    if ($mask1 =~ /$mask2/i or $mask2 =~ /$mask1/i) {
+        return 1;
+    }
     my $chan = "";
 
     # split the masks into their components
@@ -175,6 +177,24 @@ sub eval {
     };
 
     CORE::eval "\$interp->Eval(\$code);";
+    if ($@) {
+        $ret->{err} = $@;
+    }
+
+    $ret->{ok} = 1;
+    return $ret;
+}
+
+sub setvar {
+    my ($self, $var, $val) = @_;
+
+    my $interp = $self->{interp};
+    my $ret = {
+        err => 0,
+        ok => 0
+    };
+
+    CORE::eval "\$interp->SetVar(\$var, \$val);";
     if ($@) {
         $ret->{err} = $@;
     }
@@ -338,6 +358,7 @@ sub event {
                     my ($type, $flags, $mask, $procname) = @{$aref};
 
                     if ($self->_check_match($mask, $ctcpcmd)) {
+                        print "ctcp debug: [$ctcpcmd] [$ctcptext]\n";
                         CORE::eval "\$interp->call(\$procname, \$nick, \$host, \$hand, \$dest, \$ctcpcmd, \$ctcptext);";
                         if ($@) {
                             $ret->{err} = $@;
@@ -410,6 +431,12 @@ sub event {
 
     $ret->{ok} = 1;
     return $ret;
+}
+
+sub tick {
+    my ($self) = @_;
+
+    $self->{bindings}->tick();
 }
 
 1;

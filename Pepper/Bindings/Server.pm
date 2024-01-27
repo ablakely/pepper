@@ -47,7 +47,7 @@ sub hook {
         my ($tmp, $intp, $tclcmd, @args) = @_;
         my ($str, $flags) = @args;
 
-        $bot->raw($str."\r\n", 1);
+        $bot->fastout($str."\r\n");
     });
 
     # puthelp <text> [options]

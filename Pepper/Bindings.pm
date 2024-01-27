@@ -55,6 +55,13 @@ sub get_events {
     return exists($self->{events}->{$type}) ? $self->{events}->{$type} : 0;
 }
 
+
+sub tick {
+    my ($self) = @_;
+
+    $self->{_core_bindings}->tick();
+}
+
 sub unload {
     delete $INC{'Pepper/Bindings/IRC.pm'};
     delete $INC{'Pepper/Bindings/Core.pm'};

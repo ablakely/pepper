@@ -63,6 +63,14 @@ sub sp_init_tcl {
     $tcl = Pepper->new($bot, $dbi);
     $tcl->init();
 
+
+    # set eggdrop global variables
+    $tcl->setvar('botnick', $bot->nick());
+    $tcl->setvar('botname', $bot->nick()."!".$bot->gethost($bot->nick()));
+    $tcl->setvar('numversion', 10120000);
+    $tcl->setvar('version', "1.12.0-pepper");
+
+
     my $db = ${$dbi->read()};
     unless (exists($db->{Pepper})) {
         $db->{Pepper} = {
@@ -320,6 +328,9 @@ sub sp_mode {
 sub sp_ctcp {
     my ($nick, $host, $dest, $cmd, $params) = @_;
     my $handle = 0;
+    
+    # remove leading space from params
+    $params =~ s/^\s+//;
 
     $tcl->event('ctcp', $nick, $host, $handle, $dest, $cmd, $params);
 }
@@ -338,6 +349,7 @@ sub sp_tick {
     my $time = time();
 
     $tcl->dcc()->tick();
+    $tcl->tick();
 
     if (($time - $stime) >= 60) {
         my @lt = localtime($time);
