@@ -71,13 +71,14 @@ sub sp_init_tcl {
     $tcl = Pepper->new($bot, $dbi);
     $tcl->init();
 
+    my $conf = $Shadow::Core::cfg->{Modules}->{Pepper};
+
     # set eggdrop global variables
     $tcl->setvar('botnick', $bot->nick());
     $tcl->setvar('botname', $bot->nick()."!".$bot->gethost($bot->nick()));
 
-    # make this a config option?
-    $tcl->setvar('numversion', 10120000);
-    $tcl->setvar('version', "1.12.0-pepper");
+    $tcl->setvar('numversion', int($conf->{eggdrop}->{numversion}) || 10120000);
+    $tcl->setvar('version', $conf->{eggdrop}->{version} || "1.12.0-pepper");
 
     my $db = ${$dbi->read()};
     unless (exists($db->{Pepper})) {
